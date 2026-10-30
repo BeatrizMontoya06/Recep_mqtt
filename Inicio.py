@@ -2,6 +2,7 @@ import streamlit as st
 import paho.mqtt.client as mqtt
 import json
 import time
+import random
 
 # Configuración de la página
 st.set_page_config(
@@ -10,7 +11,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Estilos CSS avanzados para una interfaz totalmente nueva y limpia
+# Estilos CSS avanzados
 st.markdown("""
     <style>
     .main {
@@ -39,6 +40,10 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Generar un ID de cliente aleatorio único por sesión para evitar bloqueos en el broker
+if 'random_client_id' not in st.session_state:
+    st.session_state.random_client_id = f"skyflow_client_{random.randint(10000, 99999)}"
 
 # Variables de estado
 if 'sensor_data' not in st.session_state:
@@ -84,7 +89,7 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-# --- DISTRIBUCIÓN COMPLETAMENTE NUEVA (DOS COLUMNAS PRINCIPALES) ---
+# --- DISTRIBUCIÓN DE DOS COLUMNAS ---
 col_left, col_right = st.columns([1, 2], gap="large")
 
 with col_left:
@@ -96,7 +101,9 @@ with col_left:
         broker_input = st.text_input('Broker MQTT', value='broker.mqttdashboard.com')
         port_input = st.number_input('Puerto', value=1883, min_value=1, max_value=65535)
         topic_input = st.text_input('Tópico de Lectura', value='Sensor/THP2')
-        id_input = st.text_input('ID de Cliente Web', value='skyflow_web_client_09')
+        
+        # ID de cliente dinámico e irrepetible
+        id_input = st.text_input('ID de Cliente Web (Único)', value=st.session_state.random_client_id)
         
         st.markdown("<hr style='border-color: #374151;'>", unsafe_allow_html=True)
         
@@ -126,7 +133,6 @@ with col_right:
             temp_val = data.get('Temp', data.get('Temperatura', '--'))
             hum_val = data.get('Hum', data.get('Humedad', '--'))
             
-            # Sub-columnas para las tarjetas métricas
             m1, m2 = st.columns(2)
             with m1:
                 st.markdown(f"""
