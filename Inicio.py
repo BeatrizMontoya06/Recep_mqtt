@@ -3,42 +3,39 @@ import paho.mqtt.client as mqtt
 import json
 import time
 
-# Configuración inicial de la página
+# Configuración de la página
 st.set_page_config(
-    page_title="SkyPulse | Centro de Monitoreo Atmosférico",
-    page_icon="🌤️",
+    page_title="SkyFlow | Weather Intelligence",
+    page_icon="⛅",
     layout="wide"
 )
 
-# Estilos CSS avanzados para un diseño moderno tipo dashboard meteorológico
+# Estilos CSS avanzados para una interfaz totalmente nueva y limpia
 st.markdown("""
     <style>
     .main {
-        background-color: #0b0f19;
+        background-color: #090d16;
     }
-    .stMetric {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 20px;
-        border-radius: 14px;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    .weather-header {
-        background: linear-gradient(90deg, #1d4ed8 0%, #3b82f6 100%);
-        padding: 25px;
-        border-radius: 16px;
+    .hero-banner {
+        background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+        padding: 30px;
+        border-radius: 18px;
         color: white;
         margin-bottom: 25px;
-        box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.2);
+        box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.3);
     }
-    .news-ticker {
-        background-color: #1e293b;
-        color: #38bdf8;
-        padding: 10px 15px;
-        border-radius: 8px;
-        font-weight: 500;
-        margin-bottom: 20px;
-        border-left: 4px solid #3b82f6;
+    .control-card {
+        background-color: #111827;
+        padding: 25px;
+        border-radius: 16px;
+        border: 1px solid #1f2937;
+    }
+    .metric-container {
+        background-color: #111827;
+        padding: 20px;
+        border-radius: 16px;
+        border: 1px solid #1f2937;
+        text-align: center;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -46,21 +43,22 @@ st.markdown("""
 # Variables de estado
 if 'sensor_data' not in st.session_state:
     st.session_state.sensor_data = None
+if 'last_sync' not in st.session_state:
+    st.session_state.last_sync = "Nunca"
 
-def get_mqtt_message(broker, port, topic, client_id):
-    """Función optimizada para escuchar el broker MQTT"""
-    message_received = {"received": False, "payload": None}
+def fetch_mqtt_telemetry(broker, port, topic, client_id):
+    """Función de captura MQTT optimizada"""
+    msg_container = {"received": False, "payload": None}
     
     def on_message(client, userdata, message):
         try:
-            raw_payload = message.payload.decode()
-            payload = json.loads(raw_payload)
-            message_received["payload"] = payload
-            message_received["received"] = True
-        except Exception:
-            message_received["payload"] = message.payload.decode()
-            message_received["received"] = True
-    
+            raw = message.payload.decode()
+            msg_container["payload"] = json.loads(raw)
+            msg_container["received"] = True
+        except:
+            msg_container["payload"] = message.payload.decode()
+            msg_container["received"] = True
+            
     try:
         client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
         client.on_message = on_message
@@ -69,108 +67,89 @@ def get_mqtt_message(broker, port, topic, client_id):
         client.loop_start()
         
         timeout = time.time() + 5
-        while not message_received["received"] and time.time() < timeout:
+        while not msg_container["received"] and time.time() < timeout:
             time.sleep(0.1)
-        
+            
         client.loop_stop()
         client.disconnect()
-        
-        return message_received["payload"]
+        return msg_container["payload"]
     except Exception as e:
         return {"error": str(e)}
 
-# --- BARRA LATERAL (CONFIGURACIÓN TÉCNICA) ---
-with st.sidebar:
-    st.markdown("### 🎛️ Panel de Control IoT")
-    st.markdown("Ajusta los parámetros de conexión de red para enlazar con tu hardware virtual o físico.")
-    
-    broker = st.text_input('Broker MQTT', value='broker.mqttdashboard.com')
-    port = st.number_input('Puerto', value=1883, min_value=1, max_value=65535)
-    topic = st.text_input('Tópico', value='Sensor/THP2')
-    client_id = st.text_input('ID del Cliente Web', value='skypulse_client_live_01')
-    
-    st.divider()
-    st.markdown("### 📡 Estado del Nodo")
-    st.success("Canal MQTT Activo y Sintonizado")
-
-# --- CABECERA ESTILO NOTICIERO DEL CLIMA ---
+# --- HERO BANNER PRINCIPAL ---
 st.markdown("""
-    <div class="weather-header">
-        <h1>🌤️ SkyPulse: Centro Meteorológico Global</h1>
-        <p style="font-size: 1.1rem; margin-bottom: 0;">Transmisión en vivo de telemetría ambiental impulsada por ESP32 y sensores IoT.</p>
+    <div class="hero-banner">
+        <h1 style="margin: 0; font-size: 2.2rem;">⛅ SkyFlow Weather Hub</h1>
+        <p style="margin: 5px 0 0 0; font-size: 1.1rem; opacity: 0.9;">Plataforma de visualización atmosférica en tiempo real conectada a microcontroladores IoT.</p>
     </div>
 """, unsafe_allow_html=True)
 
-# Ticker de noticias / estado rápido
-st.markdown("""
-    <div class="news-ticker">
-        🔴 <b>BOLETÍN EN VIVO:</b> Monitoreo atmosférico automatizado en proceso. Haga clic en el botón de sincronización para actualizar los registros de campo.
-    </div>
-""", unsafe_allow_html=True)
+# --- DISTRIBUCIÓN COMPLETAMENTE NUEVA (DOS COLUMNAS PRINCIPALES) ---
+col_left, col_right = st.columns([1, 2], gap="large")
 
-# Layout principal en columnas (Sección de control e información descriptiva)
-col_info, col_action = st.columns([2, 1], gap="large")
+with col_left:
+    st.markdown("### 🎛️ Centro de Operaciones")
+    with st.container():
+        st.markdown('<div class="control-card">', unsafe_allow_html=True)
+        st.write("Configura el enlace con tu dispositivo IoT:")
+        
+        broker_input = st.text_input('Broker MQTT', value='broker.mqttdashboard.com')
+        port_input = st.number_input('Puerto', value=1883, min_value=1, max_value=65535)
+        topic_input = st.text_input('Tópico de Lectura', value='Sensor/THP2')
+        id_input = st.text_input('ID de Cliente Web', value='skyflow_web_client_09')
+        
+        st.markdown("<hr style='border-color: #374151;'>", unsafe_allow_html=True)
+        
+        if st.button('📡 Capturar Telemetría Ahora', use_container_width=True):
+            with st.spinner('Escuchando al broker...'):
+                res = fetch_mqtt_telemetry(broker_input, int(port_input), topic_input, id_input)
+                st.session_state.sensor_data = res
+                st.session_state.last_sync = time.strftime("%H:%M:%S")
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.info(f"🕒 Última sincronización: **{st.session_state.last_sync}**")
 
-with col_info:
-    st.subheader("📰 Resumen de Condiciones del Día")
-    st.write(
-        "Bienvenido al portal de telemetría de **SkyPulse**. Esta estación procesa variables "
-        "meteorológicas críticas en tiempo real mediante microcontroladores IoT. Utilice los paneles "
-        "inferiores para auditar la temperatura ambiente y la humedad relativa capturadas directamente "
-        "desde el dispositivo simulado."
-    )
-
-with col_action:
-    st.subheader("⚡ Sincronización")
-    st.markdown("Actualice el flujo de datos instantáneo:")
-    sync_btn = st.button('🔄 Suncionar Datos en Vivo', use_container_width=True)
-
-if sync_btn:
-    with st.spinner('📡 Conectando con el broker y extrayendo paquetes atmosféricos...'):
-        sensor_data = get_mqtt_message(broker, int(port), topic, client_id)
-        st.session_state.sensor_data = sensor_data
-
-st.divider()
-
-# --- SECCIÓN DE RESULTADOS VISUALES ---
-st.subheader("📊 Panel de Métricas Atmosféricas")
-
-if st.session_state.sensor_data is not None:
+with col_right:
+    st.markdown("### 📊 Panel de Control Atmosférico en Vivo")
+    
     data = st.session_state.sensor_data
     
-    if isinstance(data, dict) and 'error' in data:
-        st.error(f"❌ Error crítico de enlace MQTT: {data['error']}")
+    if data is None:
+        st.warning("⚠️ Sin datos recientes. Haz clic en **'Capturar Telemetría Ahora'** manteniendo tu simulación de Wokwi activa.")
+    elif isinstance(data, dict) and 'error' in data:
+        st.error(f"❌ Error al conectar con el broker: {data['error']}")
     else:
-        st.success('✅ Paquete de datos recibido y decodificado exitosamente desde la estación.')
+        st.success("✅ ¡Datos del sensor recibidos correctamente!")
         
         if isinstance(data, dict):
-            # Extraer claves tolerando variaciones (Temp / Temperatura, Hum / Humedad)
-            temp = data.get('Temp', data.get('Temperatura', 'N/D'))
-            hum = data.get('Hum', data.get('Humedad', 'N/D'))
+            temp_val = data.get('Temp', data.get('Temperatura', '--'))
+            hum_val = data.get('Hum', data.get('Humedad', '--'))
             
-            # Desplegar métricas en un formato visual limpio tipo estación meteorológica
-            metric_col1, metric_col2, metric_col3 = st.columns(3)
-            
-            with metric_col1:
-                st.metric(label="🌡️ Temperatura Actual", value=f"{temp} °C" if temp != 'N/D' else 'N/D', delta="Estable")
-            with metric_col2:
-                st.metric(label="💧 Humedad Relativa", value=f"{hum} %" if hum != 'N/D' else 'N/D', delta="Normal")
-            with metric_col3:
-                st.metric(label="🛰️ Estado del Enlace", value="Conectado", delta="OK")
-            
-            with st.expander('🔍 Inspeccionar Trama JSON Cruda'):
+            # Sub-columnas para las tarjetas métricas
+            m1, m2 = st.columns(2)
+            with m1:
+                st.markdown(f"""
+                    <div class="metric-container">
+                        <h4 style="color: #38bdf8; margin-bottom: 5px;">🌡️ TEMPERATURA</h4>
+                        <h2 style="margin: 0; font-size: 2.5rem;">{temp_val} °C</h2>
+                        <p style="color: #9ca3af; font-size: 0.85rem; margin-top: 5px;">Sensor DHT22 (Wokwi)</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            with m2:
+                st.markdown(f"""
+                    <div class="metric-container">
+                        <h4 style="color: #38bdf8; margin-bottom: 5px;">💧 HUMEDAD</h4>
+                        <h2 style="margin: 0; font-size: 2.5rem;">{hum_val} %</h2>
+                        <p style="color: #9ca3af; font-size: 0.85rem; margin-top: 5px;">Sensor DHT22 (Wokwi)</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+            with st.expander("🔍 Inspeccionar Estructura JSON del Paquete"):
                 st.json(data)
         else:
-            st.warning("⚠️ Se recibió una cadena de texto plano en lugar de un objeto estructurado:")
             st.code(data)
-else:
-    st.info("ℹ️ El panel se encuentra en espera. Haga clic en el botón de sincronización superior para capturar la transmisión actual.")
 
-# Pie de página informativo
+# Pie de página moderno
 st.divider()
-st.markdown(
-    "<p style='text-align: center; color: #64748b; font-size: 0.85rem;'>"
-    "SkyPulse Weather Network • Powered by Streamlit & MQTT Protocol"
-    "</p>", 
-    unsafe_allow_html=True
-)
+st.markdown("<p style='text-align: center; color: #6b7280; font-size: 0.8rem;'>SkyFlow Weather Intelligence System • Arquitectura IoT Cloud</p>", unsafe_allow_html=True)
